@@ -4,6 +4,9 @@
 # Monitors /var/log/syslog for any SSH activity and sends notification to ntfy.sh
 # Customize NTFY_TOPIC with your own topic/channel name
 
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
 NTFY_TOPIC="тест"   # 🔹 смени това с твоя ntfy.sh topic
 NTFY_SERVER="https://ntfy.sh"  # 🔹 може да смениш с собствен сървър
 NTFY_TOKEN="твоят токен"   # 🔹 добави твоя ntfy token (задължително)

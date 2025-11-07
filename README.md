@@ -1,129 +1,129 @@
 # Unraid SSH Alert (USA)
 
-Bash скрипт за мониторинг на SSH активност на Unraid сървъри с push нотификации чрез ntfy.sh.
+Bash script for monitoring SSH activity on Unraid servers with push notifications via ntfy.sh.
 
-## 📋 Описание
+## 📋 Description
 
-Този скрипт следи SSH логове в реално време и изпраща нотификации при:
-- ✅ Успешен SSH вход
-- ❌ Неуспешен опит за вход
-- 🚪 SSH изход
+This script monitors SSH logs in real-time and sends notifications for:
+- ✅ Successful SSH login
+- ❌ Failed login attempt
+- 🚪 SSH logout
 
-Нотификациите включват информация за потребителското име и IP адрес.
+Notifications include username and IP address information.
 
-## ✨ Функционалности
+## ✨ Features
 
-- **Реално време мониторинг** - Използва `tail -F` за непрекъснато следене на syslog
-- **Интелигентна дедупликация** - Предотвратява спам нотификации (5 сек за неуспешни опити, 30 сек за останалите)
-- **Приоритизация** - Различни нива на приоритет според типа събитие
-- **Лесна настройка** - Само един параметър за конфигуриране
+- **Real-time monitoring** - Uses `tail -F` for continuous syslog monitoring
+- **Smart deduplication** - Prevents notification spam (5 sec for failed attempts, 30 sec for others)
+- **Prioritization** - Different priority levels based on event type
+- **Easy setup** - Only one parameter to configure
 
-## 🚀 Инсталация
+## 🚀 Installation
 
-### 1. Изтеглете скрипта
+### 1. Download the script
 
 ```bash
 wget https://raw.githubusercontent.com/zantag/USA/main/unraid-ssh-alert.sh
 chmod +x unraid-ssh-alert.sh
 ```
 
-### 2. Конфигурирайте ntfy.sh topic
+### 2. Configure ntfy.sh topic
 
-Редактирайте скрипта и променете `NTFY_TOPIC`:
+Edit the script and change `NTFY_TOPIC`:
 
 ```bash
 nano unraid-ssh-alert.sh
 ```
 
-Намерете реда:
+Find the line:
 ```bash
 NTFY_TOPIC="put-your-ntfy-topic"
 ```
 
-И го променете с вашия ntfy.sh topic (например: `my-unraid-alerts`).
+And replace it with your ntfy.sh topic (e.g., `my-unraid-alerts`).
 
-### 3. Тествайте скрипта
+### 3. Test the script
 
 ```bash
 ./unraid-ssh-alert.sh
 ```
 
-Отворете нова SSH сесия към сървъра - трябва да получите нотификация.
+Open a new SSH session to the server - you should receive a notification.
 
-## 🔧 Автоматично стартиране
+## 🔧 Auto-start
 
-### Вариант 1: User Scripts Plugin (препоръчително)
+### Option 1: User Scripts Plugin (recommended)
 
-1. Инсталирайте **User Scripts** plugin от Community Applications
-2. Създайте нов скрипт
-3. Копирайте съдържанието на `unraid-ssh-alert.sh`
-4. Настройте да се изпълнява **At Startup of Array**
+1. Install **User Scripts** plugin from Community Applications
+2. Create a new script
+3. Copy the contents of `unraid-ssh-alert.sh`
+4. Set it to run **At Startup of Array**
 
-### Вариант 2: Чрез /boot/config/go
+### Option 2: Via /boot/config/go
 
-Добавете в `/boot/config/go`:
+Add to `/boot/config/go`:
 
 ```bash
 /path/to/unraid-ssh-alert.sh &
 ```
 
-## 📱 Настройка на ntfy.sh
+## 📱 ntfy.sh Setup
 
-1. Инсталирайте ntfy приложението на телефона си:
+1. Install the ntfy app on your phone:
    - [Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy)
    - [iOS](https://apps.apple.com/app/ntfy/id1625396347)
 
-2. Абонирайте се за вашия topic (същият като в `NTFY_TOPIC`)
+2. Subscribe to your topic (same as in `NTFY_TOPIC`)
 
-3. Готово! Ще получавате нотификации при SSH активност
+3. Done! You'll receive notifications for SSH activity
 
-## 🔒 Сигурност
+## 🔒 Security
 
-- Скриптът работи локално и не изпраща чувствителна информация
-- Използва публичния ntfy.sh сървър (или можете да хоствате собствен)
-- За допълнителна сигурност, разгледайте [ntfy authentication](https://docs.ntfy.sh/publish/#authentication)
+- The script runs locally and doesn't send sensitive information
+- Uses the public ntfy.sh server (or you can host your own)
+- For additional security, check out [ntfy authentication](https://docs.ntfy.sh/publish/#authentication)
 
-## 📝 Изисквания
+## 📝 Requirements
 
-- Unraid 6.x или по-нова версия
-- `curl` (предварително инсталиран на Unraid)
-- Интернет връзка за ntfy.sh нотификации
+- Unraid 6.x or newer
+- `curl` (pre-installed on Unraid)
+- Internet connection for ntfy.sh notifications
 
-## 🐛 Отстраняване на проблеми
+## 🐛 Troubleshooting
 
-### Не получавам нотификации
+### Not receiving notifications
 
-1. Проверете дали скриптът работи:
+1. Check if the script is running:
    ```bash
    ps aux | grep unraid-ssh-alert
    ```
 
-2. Тествайте ntfy.sh ръчно:
+2. Test ntfy.sh manually:
    ```bash
    curl -d "Test message" https://ntfy.sh/your-topic
    ```
 
-3. Проверете логовете:
+3. Check the logs:
    ```bash
    tail -f /var/log/syslog | grep sshd
    ```
 
-### Получавам твърде много нотификации
+### Receiving too many notifications
 
-Скриптът има вградена дедупликация. Ако все още получавате твърде много, можете да увеличите `DUP_TIME` стойностите в скрипта.
+The script has built-in deduplication. If you're still receiving too many, you can increase the `DUP_TIME` values in the script.
 
-## 📄 Лиценз
+## 📄 License
 
-MIT License - свободно за използване и модификация
+MIT License - free to use and modify
 
-## 🤝 Принос
+## 🤝 Contributing
 
-Pull requests са добре дошли! За големи промени, моля първо отворете issue за дискусия.
+Pull requests are welcome! For major changes, please open an issue first to discuss.
 
-## 👤 Автор
+## 👤 Author
 
 **zantag**
 
 ---
 
-⭐ Ако този скрипт ви е полезен, оставете звезда на repo-то!
+⭐ If this script is useful to you, leave a star on the repo!

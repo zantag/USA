@@ -1,5 +1,7 @@
 # Unraid SSH Alert (USA)
 
+[🇧🇬 Български](README.bg.md) | 🇬🇧 English
+
 Bash script for monitoring SSH activity on Unraid servers with push notifications via ntfy.sh.
 
 ## 📋 Description

@@ -1,28 +1,26 @@
 #!/bin/bash
 
 # === SSH login alert for Unraid ===
-# Monitors /var/log/syslog for any SSH activity and sends notification to ntfy.sh
-# Customize NTFY_TOPIC with your own topic/channel name
+# Monitors /var/log/syslog for any SSH activity and sends notification to ntfy.sh and/or Telegram
+# NTFY token is OPTIONAL for public topics on ntfy.sh
 
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 
-NTFY_TOPIC="тест"   # 🔹 смени това с твоя ntfy.sh topic
-NTFY_SERVER="https://ntfy.sh"  # 🔹 може да смениш с собствен сървър
-NTFY_TOKEN="твоят токен"   # 🔹 добави твоя ntfy token (задължително)
+# --- NTFY configuration ---
+NTFY_TOPIC="test"   # 🔹 change this to your ntfy.sh topic
+NTFY_SERVER="https://ntfy.sh"  # 🔹 change to your own server if needed
+NTFY_TOKEN="test"   # 🔹 OPTIONAL - leave empty for public topics
+
+# --- Telegram configuration (optional) ---
+TELEGRAM_BOT_TOKEN=""   # add your Telegram Bot Token
+TELEGRAM_CHAT_ID=""     # add your Telegram Chat ID
 
 HOSTNAME=$(hostname)
 LOGFILE="/var/log/syslog"
 TMPFILE="/tmp/ssh-alert.last"
 
-# Проверка за зададен token
-if [ -z "$NTFY_TOKEN" ] || [ "$NTFY_TOKEN" = "твоят_token_тук" ]; then
-    echo "ГРЕШКА: NTFY_TOKEN не е зададен!"
-    echo "Моля, задай валиден token в променливата NTFY_TOKEN"
-    exit 1
-fi
-
-# --- Функция за получаване на държава и код по IP ---
+# --- Function to get country name and code by IP ---
 get_country_info() {
     local ip=$1
     if [ "$ip" = "unknown" ] || [ -z "$ip" ]; then
@@ -39,7 +37,7 @@ get_country_info() {
     fi
 }
 
-# --- Функция за преобразуване на код на държава в emoji знаменце ---
+# --- Function to convert country code to emoji flag ---
 country_code_to_flag() {
     local country_code=$1
     if [ -z "$country_code" ] || [ "${#country_code}" -ne 2 ]; then
@@ -54,13 +52,65 @@ country_code_to_flag() {
     printf "\\U$(printf '%08X' $first_flag)\\U$(printf '%08X' $second_flag)"
 }
 
+# --- Function to send notification to Telegram ---
+send_telegram_notification() {
+    local event=$1
+    local message=$2
+    local priority=$3
+    
+    # Check if Telegram is configured
+    if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+        return 0
+    fi
+    
+    # Format message for Telegram
+    local tg_message
+    tg_message="🖥️ <b>$HOSTNAME</b>
+$event
+<code>$message</code>"
+    
+    # Add priority icon
+    if [ "$priority" -ge 4 ]; then
+        tg_message="🔴 $tg_message"
+    elif [ "$priority" -eq 3 ]; then
+        tg_message="🟡 $tg_message"
+    fi
+    
+    curl -s \
+         -X POST \
+         -H "Content-Type: application/json" \
+         -d "{\"chat_id\": \"$TELEGRAM_CHAT_ID\", \"text\": \"$tg_message\", \"parse_mode\": \"HTML\"}" \
+         "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" >/dev/null 2>&1
+}
+
+# --- Function to send notification to ntfy ---
+send_ntfy_notification() {
+    local event=$1
+    local message=$2
+    local priority=$3
+    
+    # Prepare headers
+    local headers=()
+    headers+=(-H "Title: $HOSTNAME: $event")
+    headers+=(-H "Priority: $priority")
+    headers+=(-d "$MESSAGE")
+    
+    # Add Authorization header only if token is set
+    if [ -n "$NTFY_TOKEN" ] && [ "$NTFY_TOKEN" != "asdasdasdasd" ]; then
+        headers+=(-H "Authorization: Bearer $NTFY_TOKEN")
+    fi
+    
+    # Send notification
+    curl -s "${headers[@]}" "$NTFY_SERVER/$NTFY_TOPIC" >/dev/null 2>&1
+}
+
 touch "$TMPFILE"
 
 tail -Fn0 "$LOGFILE" | \
 grep --line-buffered -E "sshd.*(Accepted|Failed|Invalid user|Invalid password|Disconnected from|Connection closed)" | \
 while read LINE; do
 
-    # --- Извличане на IP ---
+    # --- Extract IP address ---
     IP="unknown"
     if echo "$LINE" | grep -qE "from ([0-9]{1,3}\.){3}[0-9]{1,3}"; then
         IP=$(echo "$LINE" | grep -oE "from ([0-9]{1,3}\.){3}[0-9]{1,3}" | awk '{print $2}' | head -n1)
@@ -68,7 +118,7 @@ while read LINE; do
         IP=$(echo "$LINE" | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}" | head -n1)
     fi
 
-    # --- Извличане на потребител ---
+    # --- Extract username ---
     USER="unknown"
 
     if echo "$LINE" | grep -qE "Invalid user"; then
@@ -83,9 +133,7 @@ while read LINE; do
         USER=$(echo "$LINE" | sed -E 's/.*Disconnected from user ([^ ]+) .*/\1/')
     fi
 
-
-
-    # --- Държава / Флаг ---
+    # --- Country / Flag ---
     COUNTRY_INFO=""
     FLAG_EMOJI=""
     if [ "$IP" != "unknown" ] && [[ ! "$IP" =~ ^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.) ]]; then
@@ -100,7 +148,7 @@ while read LINE; do
         fi
     fi
 
-    # --- Определяне на типа събитие ---
+    # --- Determine event type ---
     if echo "$LINE" | grep -q "Accepted"; then
         EVENT="✅ SSH Login"
         MESSAGE="Successful login for user: $USER from $IP$COUNTRY_INFO"
@@ -123,7 +171,7 @@ while read LINE; do
         continue
     fi
 
-    # --- Избягване на дублиране на известия ---
+    # --- Prevent duplicate notifications ---
     TIMESTAMP=$(date +%Y%m%d%H%M)
     EVENT_ID="${EVENT}_${USER}_${IP}_${TIMESTAMP}"
 
@@ -134,13 +182,13 @@ while read LINE; do
     echo "$EVENT_ID" >> "$TMPFILE"
     tail -n 100 "$TMPFILE" > "$TMPFILE.tmp" && mv "$TMPFILE.tmp" "$TMPFILE"
 
-    # --- Изпращане на известие ---
-    curl -s \
-         -H "Authorization: Bearer $NTFY_TOKEN" \
-         -H "Title: $HOSTNAME: $EVENT" \
-         -H "Priority: $PRIORITY" \
-         -d "$MESSAGE" \
-         "$NTFY_SERVER/$NTFY_TOPIC" >/dev/null 2>&1
+    # --- Send notifications ---
+    
+    # Send to ntfy (always)
+    send_ntfy_notification "$EVENT" "$MESSAGE" "$PRIORITY"
+    
+    # Send to Telegram (if configured)
+    send_telegram_notification "$EVENT" "$MESSAGE" "$PRIORITY"
 
     echo "Notification sent: $EVENT - $MESSAGE"
 
